@@ -12,9 +12,8 @@ class NIST(BaseModel):
     "Spectral Irradiance Calibrations", NIST Special Publication 250-89,2011
     '''
     # NIST-specific attributes
-    wl_fit_limits : np.ndarray = field(default_factory=lambda: np.array([300, 1100])) # NIST model fit limits in nm
-    # wl_fit_limits : np.ndarray = np.array([300, 1100])  # Default fit limits
-    _LAMBDA0 : np.ndarray = field(default_factory=lambda: np.array([300, 1100])) 
+    wl_fit_limits : np.ndarray = field(default_factory=lambda: np.array([350, 800])) # NIST model fit limits in nm
+    _LAMBDA0 : np.ndarray = field(default_factory=lambda: np.array([350, 800])) 
 
 
     def __post_init__(self) :
