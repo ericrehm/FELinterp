@@ -1,5 +1,5 @@
 # FELinterp
-Implementations of various FEL Lamp Irradiance models for interpolation and uncertainty propagaion
+Implementations of various FEL Lamp Irradiance models for interpolation and uncertainty propagation
 
 | Class | Model Description | Reference | 
 | ----- | ----------------- | ----------|
