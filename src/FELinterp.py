@@ -5,6 +5,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 from scipy.optimize import curve_fit
+from scipy.interpolate import InterpolatedUnivariateSpline
 from punpy.mc.mc_propagation import MCPropagation
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -165,7 +166,7 @@ class NIST(BaseModel):
 
         # Fit using weighted, non-linear least squares
         (self.params, self.pcov, _, _, _) = curve_fit(        # type: ignore
-            self.__model_internal,
+            self._model_internal,
             self.wl_data,
             self.irr_data,
             sigma=self.unc_data_abs_k1,
@@ -177,7 +178,7 @@ class NIST(BaseModel):
         )
         self.perr = np.sqrt(np.diag(self.pcov))   # stdev of model params
 
-    def __model_internal(self, wavelength, *params):
+    def _model_internal(self, wavelength, *params):
 
         '''Compute model results in log flux, passing params (used by curve_fit during fitting)'''
 
@@ -223,7 +224,7 @@ class NIST(BaseModel):
             # Fit the model to the perturbed data
             try:
                 (popt_i, _, _, _, _) = curve_fit(                    # type: ignore
-                            self.__model_internal,
+                            self._model_internal,
                             self.wl_data,
                             data_perturbed,
                             p0 = self.p0,
@@ -232,7 +233,7 @@ class NIST(BaseModel):
                             full_output=True
                 )
 
-                irr = self.__model_internal(wavelength, *popt_i)
+                irr = self._model_internal(wavelength, *popt_i)
                 data_bootstrap.append(irr)
 
                 # pred = self.untransform(wavelength, log_flux)  # shape: (len(wavelength),)
@@ -533,7 +534,7 @@ class SSBUVw0(SSBUV):
         F = np.zeros_like(wavelength, dtype=float)
 
         # Divide SSBUV model at LAMBDA0, per Huang et al. 1998.
-        # The paper chooses LAMBDA0 = 450 nm
+        # T he paper chooses LAMBDA0 = 450 nm
         # I found the optmization VERY senstive to the choice of LAMBDA0
         # but was not satisified with the results when LAMBDA0 used as an 
         # optimizationparameter (using again one more degree of freedom).  
@@ -555,6 +556,78 @@ class SSBUVw0(SSBUV):
             + C5 * np.abs((wavelength[mask_hi] - self._LAMBDA0)/500) ** C6
         )
         return F
+
+@dataclass
+class WhiteSpline(BaseModel):
+
+    spline: InterpolatedUnivariateSpline = field(init=False)
+    _LAMBDA0 : float = 0  
+
+    def __post_init__(self) :
+        ''' Initialize the subclass by transforming data, doing the curve_fit plus anything in BaseModel '''
+        super().__post_init__() 
+    
+        self.spline = InterpolatedUnivariateSpline(self.wl_data, self.irr_data, ext=2, check_finite=True)
+
+        # self.perr = np.sqrt(np.diag(self.pcov))   # stdev of model params
+
+    def print_model(self):
+        print(f"{str(self)}")
+        print(self.spline)
+        return
+
+    def model(self, wavelength):
+        '''Compute model results: irradiance at wavelength'''
+        xi = wavelength.ravel()
+        return self.spline(xi)
+    
+    def model_unc_white(self, wavelength) -> pd.DataFrame:
+        '''
+            Estimate uncertainty in interpolated points 
+            '''
+        # Interpolate (x,y) to new xi basis yielding yi
+        # MATLAB: pp = spline(x,y)
+        #         yi = ppval(pp, xi)
+        # x = x.to_numpy()
+        # y = y.to_numpy()
+        # xi = xi.to_numpy()
+        N = len(self.irr_data)
+        Ni = len(wavelength)
+
+        # Original data
+        x = self.wl_data
+        y = self.irr_data
+        uy = self.unc_data_abs_k1
+
+        # Interpolated data
+        xi = wavelength.ravel()
+        yi = self.model(wavelength)
+
+        # Calculate spline weights for each knot (1, 0, ...), (0, 1, ...), etc.
+        yeye = np.eye(N)
+        ppFx = []
+        for i in range(0,N) :
+            ppFx.append(InterpolatedUnivariateSpline(x, yeye[i,:]))
+
+        # Calculate uncertainties uyi at interpolated points
+        #
+        # Essentially, a spline-weighted sum of the known uncertainties uy
+        # where the splines are evaluated at each xi
+        uyi = np.zeros(Ni)
+        for j in range(0, Ni) :
+            for spline,i in zip(ppFx, range(0,N)) :
+                uyi[j] = uyi[j] + (uy[i]**2)*(spline(xi[j])**2)  # Be careful w indexing!
+
+        uyi = np.sqrt(uyi)
+
+        # Package interpolated results
+        df_interp = pd.DataFrame({
+            'wavelength': wavelength,
+            'irradiance': yi,
+            'uncertainty': uyi
+        })
+
+        return df_interp
     
     
 # Local functions
@@ -604,9 +677,10 @@ def main():
     # dff = pd.read_csv(lampPath, header=None, sep='\\s+', names=['wavelength', 'irradiance'], skiprows = 3)
 
     # Create theModel model and print fitted parameters
-    theModel = SSBUV(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
+    # theModel = SSBUV(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
     # theModel = SSBUVw0(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
     # theModel = NIST(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values, wl_fit_limits=np.array([350, 800]) )
+    theModel = WhiteSpline(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
     theModel.print_model()
 
     # Interpolate at user-defined wavelengths 
@@ -619,9 +693,10 @@ def main():
     # Model uncertainties via MCPropagation at interpolated wavelengths (not perfect yet)
     # uncEstStr = 'MCPropagation interp. uncert.'  # Uncomment to use MCPropagation
     # interp_df = theModel.model_unc_mc(w_interp, nsamples=10000)
-    uncEstStr = 'bootstrap'    # Use bootstrap to estimate uncertainties
-    interp_df = theModel.model_unc_bootstrap(w_interp, nsamples=nsamples)
-
+    # uncEstStr = 'bootstrap'    # Use bootstrap to estimate uncertainties
+    # interp_df = theModel.model_unc_bootstrap(w_interp, nsamples=nsamples)
+    uncEstStr = 'WhiteSpline'    # Use bootstrap to estimate uncertainties
+    interp_df = theModel.model_unc_white(w_interp)  # Use WhiteSpline model to estimate uncertainties
     # Plot original data and modeled mean spectrum + uncertainties evaluated at interpolated 
     # wavelengths then plot residuals
     fig1 = theModel.plotly_unc(interp_df)
@@ -654,7 +729,7 @@ def main():
     fig.update_xaxes(title_text='$\\text{Wavelength  }(nm)$', row=2, col=1)
     fig.update_xaxes(range=[w_interp.min()-10, w_interp.max()+10])
     fig.update_yaxes(title_text='$\\text{100 x Relative Deviation}$', range=[-0.6 ,0.6], row=2, col=1)
-    fig.show()
+    fig.show('browser')  # Show the plot in a browser
 
 if __name__ == '__main__' :
     main()
