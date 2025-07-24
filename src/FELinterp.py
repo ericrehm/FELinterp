@@ -13,6 +13,18 @@ from SSBUV import SSBUV, SSBUVw0
 # Local functions
 
 def readOptronicLampData(lampSN) :
+    '''
+    Read Optronic Labs FEL lamp data from .std and k=2 uncertainty files.
+    
+    OLFEL-M 1000-Watt NIST-Traceable Spectral Irradiance Standard (250 - 1100 nm)
+    The following reported calibration values are covered under our ISO 17025 scope:
+    250 - 400 nm in (10) nm increments, 450 nm, 500 nm, 555 nm,
+    600 nm, 654.6 nm, 700 nm, 800 nm, 900 nm, 1050 nm, 1100 nm
+    https://www.solarlight.com/product/ol-fel-m-irradiance-standard-250-1100-nm?tab=description
+    Spectral Irradiance (Nominal): @ 250 nm: 0.03 μW/cm²nm, @ 1000 nm: 25μW/cm²nm
+
+    '''
+
     lampBaseDir = Path('/Users/ericrehm/src/FELinterp/lamps/Optronic')
     lampSNDir   = re.sub(r'F(\d+)', r'F-\1', lampSN)
     std_files = list(Path(lampBaseDir, lampSNDir).glob(f'{lampSN}_??.std'))
@@ -21,7 +33,7 @@ def readOptronicLampData(lampSN) :
     lampPath = std_files[0]
     lampUncPath = Path(lampBaseDir, lampSNDir,f'{lampSN}_k2uncertainty.dat')
 
-    # --- Read the Optronic Labs FEL lamp .std file ---
+    # --- Read the Optronic Labs FEL lamp .std file with units: W/(cm^2 nm) ---
     try:
         print(f'Reading {lampPath}')
         df1 = pd.read_csv(lampPath, header=None, names=['wavelength', 'irradiance'], skiprows = 1)
@@ -31,7 +43,7 @@ def readOptronicLampData(lampSN) :
     except Exception as e:
         print(f"An unexpected error occurred while reading '{lampPath}': {e}")
         
-    # --- Read the Optronic Labs FEL lamp k=2 uncertainty file ---
+    # --- Read the Optronic Labs FEL lamp k=2 relative uncertainty file (with units percent %) ---
     try:
         print(f'Reading {lampUncPath}')
         df2 = pd.read_csv(lampUncPath, header=None, sep='\t', names=['wavelength', 'uncertainty_rel'], skiprows = 1)
@@ -57,7 +69,7 @@ def main():
     # dff = pd.read_csv(lampPath, header=None, sep='\\s+', names=['wavelength', 'irradiance'], skiprows = 3)
 
     # Create theModel model and print fitted parameters
-    theModel = SSBUV(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
+    theModel = SSBUV(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
     # theModel = SSBUVw0(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
     # theModel = NIST(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values, wl_fit_limits=np.array([350, 800]) )
     # theModel = WhiteSpline(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
