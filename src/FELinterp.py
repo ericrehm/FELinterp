@@ -69,10 +69,10 @@ def main():
     # dff = pd.read_csv(lampPath, header=None, sep='\\s+', names=['wavelength', 'irradiance'], skiprows = 3)
 
     # Create theModel model and print fitted parameters
-    theModel = SSBUV(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
+    # theModel = SSBUV(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
     # theModel = SSBUVw0(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
-    # theModel = NIST(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values, wl_fit_limits=np.array([350, 800]) )
-    # theModel = WhiteSpline(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
+    # theModel = NIST(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy(), wl_fit_limits=np.array([350, 800]) )
+    theModel = WhiteSpline(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
     theModel.print_model()
 
     # Interpolate at user-defined wavelengths 
@@ -83,18 +83,12 @@ def main():
     I_interp = theModel.model(w_interp)
 
     # Model uncertainties via MCPropagation at interpolated wavelengths (not perfect yet)
-    # uncEstStr = 'MCPropagation interp. uncert.'  # Uncomment to use MCPropagation
-    # interp_df = theModel.model_unc_mc(w_interp, nsamples=10000)
-    
+    # uncEstStr = 'MCPropagation'  # Uncomment to use MCPropagation    
     uncEstStr = 'bootstrap'    # Use bootstrap to estimate uncertainties
-    interp_df = theModel.model_unc_bootstrap(w_interp, nsamples=nsamples)
-    
-    
     # uncEstStr = 'WhiteSpline'    # Use bootstrap to estimate uncertainties
-    # interp_df = theModel.model_unc_white(w_interp)  # Use WhiteSpline model to estimate uncertainties
+    interp_df = theModel.model_unc(w_interp, nsamples=nsamples, method=uncEstStr)  
     
-    
-    # Plot original data and modeled mean spectrum + uncertainties evaluated at interpolated 
+        # Plot original data and modeled mean spectrum + uncertainties evaluated at interpolated 
     # wavelengths then plot residuals
     fig1 = theModel.plotly_unc(interp_df)
     fig2 = theModel.plotly_rel_residuals(interp_df)

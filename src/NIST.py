@@ -67,7 +67,7 @@ class NIST(BaseModel):
 
         return F
         
-    def model_unc_bootstrap(self, wavelength, nsamples=1000) -> pd.DataFrame:
+    def model_unc(self, wavelength, nsamples=1000, method = 'bootstrap') -> pd.DataFrame:
         '''
         Estimate uncertainty in interpolated points by bootstrapping the mdoel 
         input data. The curve fit is repeated for each bootstrap sample, based 

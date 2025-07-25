@@ -96,6 +96,16 @@ class SSBUV(BaseModel):
         irr = self.untransform(wavelength, log_flux)
         return irr
 
+    def model_unc(self, wavelength, nsamples, method = 'bootstrap') -> pd.DataFrame:
+        match method:
+            case 'MCPropagation':
+                return self.model_unc_mc(wavelength, nsamples)
+            case 'bootstrap':
+                return self.model_unc_bootstrap(wavelength, nsamples)
+            case _:
+                raise ValueError(f"Unknown method: {method}. Use 'bootstrap' or 'MCPropagation'.")
+            
+
     def model_unc_mc(self, wavelength, nsamples=10000) -> pd.DataFrame:
         '''
         Estimate uncertainty in interpolated points by computing transformed 

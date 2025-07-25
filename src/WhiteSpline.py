@@ -32,25 +32,24 @@ class WhiteSpline(BaseModel):
         xi = wavelength.ravel()
         return self.spline(xi)
     
-    def model_unc_white(self, wavelength) -> pd.DataFrame:
+    def model_unc(self, wavelength, nsamples=0, method='WhiteSpline') -> pd.DataFrame:
         '''
-            Estimate uncertainty in interpolated points 
-            '''
+            Estimate uncertainty in interpolated points according to the White2017 method
+            This is an analytical, not bootstrap, method, so nsamples is ignored.
+            The uncertainty is estimated by the spline weights at the interpolated points.
+        '''
         # Interpolate (x,y) to new xi basis yielding yi
         # MATLAB: pp = spline(x,y)
         #         yi = ppval(pp, xi)
-        # x = x.to_numpy()
-        # y = y.to_numpy()
-        # xi = xi.to_numpy()
-        N = len(self.irr_data)
-        Ni = len(wavelength)
 
         # Original data
+        N = len(self.irr_data)
         x = self.wl_data
-        y = self.irr_data
+        # y = self.irr_data
         uy = self.unc_data_abs_k1
 
         # Interpolated data
+        Ni = len(wavelength)
         xi = wavelength.ravel()
         yi = self.model(wavelength)
 
@@ -62,7 +61,7 @@ class WhiteSpline(BaseModel):
 
         # Calculate uncertainties uyi at interpolated points
         #
-        # Essentially, a spline-weighted sum of the known uncertainties uy
+        # Essentially, a spline-weighted quadrature sum of the known uncertainties uy
         # where the splines are evaluated at each xi
         uyi = np.zeros(Ni)
         for j in range(0, Ni) :
