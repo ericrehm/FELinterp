@@ -54,6 +54,7 @@ class WhiteSpline(BaseModel):
         yi = self.model(wavelength)
 
         # Calculate spline weights for each knot (1, 0, ...), (0, 1, ...), etc.
+        # White 2017 equations 18, 19
         yeye = np.eye(N)
         ppFx = []
         for i in range(0,N) :
@@ -63,6 +64,8 @@ class WhiteSpline(BaseModel):
         #
         # Essentially, a spline-weighted quadrature sum of the known uncertainties uy
         # where the splines are evaluated at each xi
+        # White 2017 equation 17, where there is no uncertainty in x (wavelength) 
+        # values, i.e.,  u(x) = ux(xi) = 0
         uyi = np.zeros(Ni)
         for j in range(0, Ni) :
             for spline,i in zip(ppFx, range(0,N)) :

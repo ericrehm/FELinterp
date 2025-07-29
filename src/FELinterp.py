@@ -57,9 +57,10 @@ def readOptronicLampData(lampSN) :
 
 def main():
 
-    lampSN = 'F1711'
+    # lampSN = 'F1711'
     # lampSN = 'F1738'
     # lampSN = 'F1739'
+    lampSN = 'F1744'
     nsamples = 50
 
     df = readOptronicLampData(lampSN)
@@ -69,10 +70,10 @@ def main():
     # dff = pd.read_csv(lampPath, header=None, sep='\\s+', names=['wavelength', 'irradiance'], skiprows = 3)
 
     # Create theModel model and print fitted parameters
-    # theModel = SSBUV(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
+    theModel = SSBUV(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
     # theModel = SSBUVw0(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
     # theModel = NIST(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy(), wl_fit_limits=np.array([350, 800]) )
-    theModel = WhiteSpline(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
+    # theModel = WhiteSpline(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
     theModel.print_model()
 
     # Interpolate at user-defined wavelengths 
@@ -84,7 +85,8 @@ def main():
 
     # Model uncertainties via MCPropagation at interpolated wavelengths (not perfect yet)
     # uncEstStr = 'MCPropagation'  # Uncomment to use MCPropagation    
-    uncEstStr = 'bootstrap'    # Use bootstrap to estimate uncertainties
+    # uncEstStr = 'bootstrap'    # Use bootstrap to estimate uncertainties
+    uncEstStr = 'covariance'    # Use covariance matrix to estimate uncertainties
     # uncEstStr = 'WhiteSpline'    # Use bootstrap to estimate uncertainties
     interp_df = theModel.model_unc(w_interp, nsamples=nsamples, method=uncEstStr)  
     
