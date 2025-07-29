@@ -112,14 +112,10 @@ class SSBUV(BaseModel):
 
     def model_unc_mc(self, wavelength, nsamples) -> pd.DataFrame:
         '''
-        Estimate uncertainty in interpolated points by computing transformed 
-        data and transformed uncertainties, resampling transforded data, and 
-        then error propagation.
-        
-        This is different than resampling model parameters based pcov (the 
-        covariance matrix of the fit) -- difficult because pcov is 
-        ill-conditioned. This means SSBUV is "twitchy", and some error 
-        propagation approaches don't work well as a result
+        Estimate uncertainty first interpolating original uncertainty data (dubious)
+        transformed to log flux space, then resampling log flux with interpolated
+        uncertainties.  Not really an MC approach, as the model is not exercised,
+        so this uncertainty estimation method has little value.
         '''
         # Set up punpy MC uncert propagation
         mc = MCPropagation(steps=nsamples)
