@@ -166,7 +166,7 @@ class SSBUV(BaseModel):
 
         return df_interp
     
-    def model_unc_covariance(self, wavelength, nsamples) -> pd.DataFrame:
+    def model_unc_covariance(self, wavelength, _) -> pd.DataFrame:
         '''
         Estimate uncertainty in interpolated points using curve_fit (input parameter) covariance matrix Cp (7 x 7)
         The Jacobian Jp matrix [∂E_i/∂P_j] (E = irradiance, P = fitting params) is calculated. (n_wavelengths x 7)
@@ -176,30 +176,42 @@ class SSBUV(BaseModel):
         See https://stackoverflow.com/questions/77956010/how-to-estimate-error-propagation-on-regressed-function-from-covariance-matrix-u
         and Arras 1998, "An Introduction To Error Propagation: Derivation, Meaning and Examples of Equation Cy = FCF' 
         https://infoscience.epfl.ch/server/api/core/bitstreams/20ca2fc1-b9b7-4316-a30a-938cef8b00a8/content 
+
+        Note:  Since pcov was computed in log flux space, so is output variance() and the resulting ci.
+        To compute the final confidence interval in irradiance space, do ci = untransform(logflux + ci_logflux) - yhat
+        Since it's a nonlinear transformation, we should also compute lower ci = yhat - untransform(logflux - ci_logflux), 
+        but the upper and lower ci's are very close: within +/- 0.01% of total uncertainty and generally the upper ci >= lower ci.
         '''
         def variance(x, Cp, *p):
             
             def proxy(q):
                 log_flux = self._model_transformed_internal(x, *q)
-                irr = self.untransform(x, log_flux)
-                return irr
+                # irr = self.untransform(x, log_flux)
+                # return irr
+                return log_flux
             
             def projection(J):
                 return J.T @ Cp @ J
                 # return J @ Cp @ J.T
             
             Jp = nd.Gradient(proxy)(*p)
-            Cy = np.apply_along_axis(projection, 1, Jp)   # Compute 
+            Cy = np.apply_along_axis(projection, 1, Jp)   # Compute output covar major diag
             
             return Cy
         
-        yhat = self.model(wavelength)
+        # Compute output covariance and k=1 uncertainty in logflux space
         alpha = 1 - 0.6827 # Corresponds k = 1
         # alpha = 1 - 0.95 # Corresponds k = 2
         z = stats.norm.ppf(1 - alpha / 2.)
         Cy = variance(wavelength, self.pcov, self.params) 
         sy = np.sqrt(Cy)
-        ci = z * sy
+        ci_logflux = z * sy
+
+        # Final transformation back to irradiance space
+        yhat = self.model(wavelength)
+        logflux = self.transform(wavelength, yhat)
+        yhatpci = self.untransform(wavelength,  logflux + ci_logflux)
+        ci = yhatpci - yhat
 
         df_interp = pd.DataFrame({
             'wavelength': wavelength,
