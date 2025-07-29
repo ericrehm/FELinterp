@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 import pandas as pd
 import numpy as np
 from scipy.optimize import curve_fit
+from scipy import stats
+import numdifftools as nd
 from BaseModel import BaseModel
 
 @dataclass
@@ -66,15 +68,68 @@ class NIST(BaseModel):
         F = (A0 + A1*wavelength + A2*wavelength**2+ A3*wavelength**3 + A4*wavelength**4)/(wavelength**5)*np.exp(A5 + T/(wavelength))
 
         return F
+    
+    def model_unc(self, wavelength, nsamples, method = 'covariance') -> pd.DataFrame:
+        match method:
+            case 'bootstrap':
+                return self.model_unc_bootstrap(wavelength, nsamples)
+            case 'covariance':
+                return self.model_unc_covariance(wavelength, nsamples)
+            case _:
+                raise ValueError(f"Unknown method: {method}. Use 'bootstrap' or 'covariance.")
+
+    def model_unc_covariance(self, wavelength, _) -> pd.DataFrame:
+        '''
+        NOTE:  DOES NOT PRODUCE REASONABLE UNCERTAINTY ESTIMATES.  USE 'bootstrap' method instead.
         
-    def model_unc(self, wavelength, nsamples=1000, method = 'bootstrap') -> pd.DataFrame:
+        Estimate uncertainty in interpolated points using curve_fit (input parameter) covariance matrix Cp (7 x 7)
+        The Jacobian Jp matrix [∂E_i/∂P_j] (E = irradiance, P = fitting params) is calculated. (n_wavelengths x 7)
+        Then the confidence intervals are the square root of the diagonal elements of the output covariance matrix Cy:
+            Cy = Jp x Cp x Jp'  (n_wavelengths x 1)
+        Computationally, for each wavelength index i, compute Cy(i) = Jp(i, :) x Cp x Jp(i,:)' = (1 x 7) X (7 x 7) X (7 x 1)
+        See https://stackoverflow.com/questions/77956010/how-to-estimate-error-propagation-on-regressed-function-from-covariance-matrix-u
+        and Arras 1998, "An Introduction To Error Propagation: Derivation, Meaning and Examples of Equation Cy = FCF' 
+        https://infoscience.epfl.ch/server/api/core/bitstreams/20ca2fc1-b9b7-4316-a30a-938cef8b00a8/content 
+        '''
+        def variance(x, Cp, *p):
+            
+            def proxy(q):
+                irr = self._model_internal(x, *q)
+                return irr
+            
+            def projection(J):
+                return J.T @ Cp @ J
+                # return J @ Cp @ J.T
+            
+            Jp = nd.Gradient(proxy)(*p)
+            Cy = np.apply_along_axis(projection, 1, Jp)   # Compute output covar major diag
+            
+            return Cy
+        
+        # Compute output covariance and k=1 uncertainty in logflux space
+        alpha = 1 - 0.6827 # Corresponds k = 1
+        # alpha = 1 - 0.95 # Corresponds k = 2
+        z = stats.norm.ppf(1 - alpha / 2.)
+        Cy = variance(wavelength, self.pcov, self.params) 
+        sy = np.sqrt(Cy)
+        ci = z * sy
+        yhat = self.model(wavelength)
+
+        df_interp = pd.DataFrame({
+            'wavelength': wavelength,
+            'irradiance': yhat,
+            'uncertainty': ci,
+        })
+
+        return df_interp
+        
+    def model_unc_bootstrap(self, wavelength, nsamples=1000) -> pd.DataFrame:
         '''
         Estimate uncertainty in interpolated points by bootstrapping the mdoel 
         input data. The curve fit is repeated for each bootstrap sample, based 
         on the original lamp and k=2 uncertainty data.  The mean of the interpolated
         irradiance is returned, along with the standard deviation of the
         interpolated irradiance samples.
-        This may be a more robust approach than MCPropagation method above.
         '''
         # Create a new random number generator for reproducibility
         rng = np.random.default_rng(42)
