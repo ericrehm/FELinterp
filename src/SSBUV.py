@@ -5,6 +5,7 @@ from scipy.optimize import curve_fit
 from scipy import stats
 import numdifftools as nd
 from punpy.mc.mc_propagation import MCPropagation
+import plotly.graph_objects as go
 from BaseModel import BaseModel
 
 
@@ -98,12 +99,12 @@ class SSBUV(BaseModel):
         irr = self.untransform(wavelength, log_flux)
         return irr
 
-    def model_unc(self, wavelength, nsamples, method = 'covariance') -> pd.DataFrame:
+    def model_unc(self, wavelength, nsamples, method = 'covariance', doPlot = False) -> pd.DataFrame:
         match method:
             case 'MCPropagation':
                 return self.model_unc_mc(wavelength, nsamples)
             case 'bootstrap':
-                return self.model_unc_bootstrap(wavelength, nsamples)
+                return self.model_unc_bootstrap(wavelength, nsamples, doPlot)
             case 'covariance':
                 return self.model_unc_covariance(wavelength, nsamples)
             case _:
@@ -219,7 +220,7 @@ class SSBUV(BaseModel):
 
 
 
-    def model_unc_bootstrap(self, wavelength, nsamples) -> pd.DataFrame:
+    def model_unc_bootstrap(self, wavelength, nsamples, doPlot) -> pd.DataFrame:
         '''
         Estimate uncertainty in interpolated points by bootstrapping the transformed (!)
         mdoel input data. The curve fit is repeated for each bootstrap sample, based 
@@ -232,7 +233,8 @@ class SSBUV(BaseModel):
         rng = np.random.default_rng(42)
         log_flux_bootstrap = []
 
-        # fig = go.Figure()
+        if doPlot:
+            fig = go.Figure()
 
         # Run bootstrap
         print(f'Bootstrapping {nsamples} samples...')
@@ -261,13 +263,17 @@ class SSBUV(BaseModel):
                 log_flux = self._model_transformed_internal(wavelength, *popt_i)
                 log_flux_bootstrap.append(log_flux)
 
-                # pred = self.untransform(wavelength, log_flux)  # shape: (len(wavelength),)
-                # fig = fig.add_trace(go.Scatter(
-                #     x=wavelength, y=pred, mode='lines',
-                #     name=f'Bootstrap Sample {_+1}', line=dict(color='grey', width=0.5)
-                # ) )
+                if doPlot:
+                    pred = self.untransform(wavelength, log_flux)  # shape: (len(wavelength),)
+                    fig = fig.add_trace(go.Scatter(
+                        x=wavelength, y=pred, mode='lines',
+                        name=f'Bootstrap Sample {_+1}', line=dict(color='grey', width=0.5)
+                    ) )
             except RuntimeError:
                 continue
+
+        if doPlot:
+            fig.show('browser')
 
         # perturbed log_flux data from nsamples model fits and evalulation at interpolated wavelengths
         log_flux_bootstrap = np.array(log_flux_bootstrap)  # shape: (n_samples, len(wwavlength))

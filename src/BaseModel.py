@@ -43,7 +43,7 @@ class BaseModel:
     def model(self, wl: np.ndarray):
         raise NotImplementedError("Subclasses must implement model() method")
 
-    def model_unc(self, wavelength : np.ndarray, nsamples:int, method : str) -> pd.DataFrame :
+    def model_unc(self, wavelength : np.ndarray, nsamples:int, method : str, doPlot : bool) -> pd.DataFrame :
         return pd.DataFrame()
 
     def print_model(self):

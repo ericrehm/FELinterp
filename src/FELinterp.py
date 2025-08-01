@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from WhiteSpline import WhiteSpline
 from NIST import NIST
+from NISTIIF import NISTIIF
 from SSBUV import SSBUV, SSBUVw0 
  
 
@@ -57,10 +58,10 @@ def readOptronicLampData(lampSN) :
 
 def main():
 
-    # lampSN = 'F1711'
+    lampSN = 'F1711'
     # lampSN = 'F1738'
     # lampSN = 'F1739'
-    lampSN = 'F1744'
+    # lampSN = 'F1744'
     nsamples = 50
 
     df = readOptronicLampData(lampSN)
@@ -73,6 +74,7 @@ def main():
     theModel = SSBUV(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
     # theModel = SSBUVw0(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
     # theModel = NIST(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy(), wl_fit_limits=np.array([350, 800]) )
+    # theModel = NISTIIF(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy(), wl_fit_limits=np.array([350, 1100]) )
     # theModel = WhiteSpline(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
     theModel.print_model()
 
@@ -80,15 +82,18 @@ def main():
     # (Shows how to use the model without knowledge of any internals)
     wavelengths = df.wavelength.values
     w_interp = np.linspace(wavelengths.min(), wavelengths.max(), 1000)  # Arbitrary wl grid
-    # w_interp = np.linspace(250.0, 1100.0, (1100-250)+1)  # Arbitrary wl grid
+    # limits = np.array([250, 1100])
+    # step = 1
+    # w_interp = np.arange(limits[0], limits[1]+step, step)  # Arbitrary wl grid
     I_interp = theModel.model(w_interp)
+    
 
     # Model uncertainties via MCPropagation at interpolated wavelengths (not perfect yet)
     # uncEstStr = 'MCPropagation'  # Uncomment to use MCPropagation    
-    # uncEstStr = 'bootstrap'    # Use bootstrap to estimate uncertainties
-    uncEstStr = 'covariance'    # Use covariance matrix to estimate uncertainties
+    uncEstStr = 'bootstrap'    # Use bootstrap to estimate uncertainties
+    # uncEstStr = 'covariance'    # Use covariance matrix to estimate uncertainties
     # uncEstStr = 'WhiteSpline'    # Use bootstrap to estimate uncertainties
-    interp_df = theModel.model_unc(w_interp, nsamples=nsamples, method=uncEstStr)  
+    interp_df = theModel.model_unc(w_interp, nsamples=nsamples, method=uncEstStr, doPlot=True)  
     
         # Plot original data and modeled mean spectrum + uncertainties evaluated at interpolated 
     # wavelengths then plot residuals
@@ -108,8 +113,12 @@ def main():
     # )).show()
 
     # Put the two figures on subplots 
+    if hasattr(theModel, '_LAMBDA0') :
+       lambdaStr = f'(\lambda_0 = \\text{{{str(theModel._LAMBDA0)} }}nm), '
+    else :
+       lambdaStr = ''
     fig = make_subplots(rows=2, cols=1, row_heights=[0.75, 0.25], vertical_spacing=0.02, shared_xaxes=True, subplot_titles=
-                        (f'$\\text{{FEL Lamp {lampSN} Irradiance fit with {str(theModel)} Method }}(\lambda_0 = \\text{{{str(theModel._LAMBDA0)} }}nm)\\text{{, Uncertainty: {uncEstStr} method, N={nsamples}}}$', ''))
+                        (f'$\\text{{FEL Lamp {lampSN} Irradiance fit with {str(theModel)} Method}}{lambdaStr}\\text{{, Uncertainty: {uncEstStr} method, N={nsamples}}}$', ''))
     
     # Populate the subplots from the two figures (plotly feature/hack)
     for itrace in fig1.data: 

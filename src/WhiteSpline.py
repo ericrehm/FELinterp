@@ -32,7 +32,7 @@ class WhiteSpline(BaseModel):
         xi = wavelength.ravel()
         return self.spline(xi)
     
-    def model_unc(self, wavelength, nsamples=0, method='WhiteSpline') -> pd.DataFrame:
+    def model_unc(self, wavelength, nsamples=0, method='WhiteSpline', doPlot=False) -> pd.DataFrame:
         '''
             Estimate uncertainty in interpolated points according to the White2017 method
             This is an analytical, not bootstrap, method, so nsamples is ignored.

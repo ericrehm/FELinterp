@@ -4,6 +4,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from scipy import stats
 import numdifftools as nd
+import plotly.graph_objects as go
 from BaseModel import BaseModel
 
 @dataclass
@@ -14,7 +15,7 @@ class NIST(BaseModel):
     "Spectral Irradiance Calibrations", NIST Special Publication 250-89,2011
     '''
     # NIST-specific attributes
-    wl_fit_limits : np.ndarray = field(default_factory=lambda: np.array([350, 800])) # NIST model fit limits in nm
+    wl_fit_limits : np.ndarray = field(default_factory=lambda: np.array([350, 1100])) # NIST model fit limits in nm
     _LAMBDA0 : np.ndarray = field(default_factory=lambda: np.array([350, 800])) 
 
 
@@ -29,6 +30,16 @@ class NIST(BaseModel):
 
         # Initial guesses for parameters: A0,...,A5, T
         self.p0 = np.array([10,-1000,-1e-4,-1e3,10,-0.01,1])  # NIST
+
+        # Ensure wl_data and related attributes are initialized before masking
+        if not hasattr(self, 'wl_data') or self.wl_data is None:
+            raise AttributeError("wl_data must be initialized before NIST model fitting.")
+        if not hasattr(self, 'irr_data') or self.irr_data is None:
+            raise AttributeError("irr_data must be initialized before NIST model fitting.")
+        if not hasattr(self, 'unc_data_abs_k1') or self.unc_data_abs_k1 is None:
+            raise AttributeError("unc_data_abs_k1 must be initialized before NIST model fitting.")
+        if not hasattr(self, 'unc_data_rel_k2') or self.unc_data_rel_k2 is None:
+            raise AttributeError("unc_data_rel_k2 must be initialized before NIST model fitting.")
 
         # Limit model to masked wavelengths (as per NIST 2011.)
         mask = (self.wl_data >= self.wl_fit_limits[0]) & (self.wl_data <= self.wl_fit_limits[1]) # Works ok.
@@ -69,10 +80,10 @@ class NIST(BaseModel):
 
         return F
     
-    def model_unc(self, wavelength, nsamples, method = 'covariance') -> pd.DataFrame:
+    def model_unc(self, wavelength, nsamples, method = 'covariance', doPlot=False) -> pd.DataFrame:
         match method:
             case 'bootstrap':
-                return self.model_unc_bootstrap(wavelength, nsamples)
+                return self.model_unc_bootstrap(wavelength, nsamples, doPlot)
             case 'covariance':
                 return self.model_unc_covariance(wavelength, nsamples)
             case _:
@@ -123,7 +134,7 @@ class NIST(BaseModel):
 
         return df_interp
         
-    def model_unc_bootstrap(self, wavelength, nsamples=1000) -> pd.DataFrame:
+    def model_unc_bootstrap(self, wavelength, nsamples, doPlot) -> pd.DataFrame:
         '''
         Estimate uncertainty in interpolated points by bootstrapping the mdoel 
         input data. The curve fit is repeated for each bootstrap sample, based 
@@ -134,6 +145,9 @@ class NIST(BaseModel):
         # Create a new random number generator for reproducibility
         rng = np.random.default_rng(42)
         data_bootstrap = []
+
+        if doPlot:
+            fig = go.Figure()
 
         # Run bootstrap
         print(f'Bootstrapping {nsamples} samples...')
@@ -162,15 +176,18 @@ class NIST(BaseModel):
                 irr = self._model_internal(wavelength, *popt_i)
                 data_bootstrap.append(irr)
 
-                # pred = self.untransform(wavelength, log_flux)  # shape: (len(wavelength),)
-                # fig = fig.add_trace(go.Scatter(
-                #     x=wavelength, y=pred, mode='lines',
-                #     name=f'Bootstrap Sample {_+1}', line=dict(color='grey', width=0.5)
-                # ) )
+                if doPlot:
+                    pred = irr  # shape: (len(wavelength),)
+                    fig = fig.add_trace(go.Scatter(
+                        x=wavelength, y=pred, mode='lines',
+                        name=f'Bootstrap Sample {_+1}', line=dict(color='grey', width=0.5)
+                    ) )
             except RuntimeError:
                 continue
 
-        # fig.show()  # Show the bootstrap samples
+        if doPlot:
+            fig.show('browser')  # Show the bootstrap samples
+
         irr_samples = np.array(data_bootstrap)  # shape: (n_samples, len(wwavlength))
 
         # Compute statistics
