@@ -141,7 +141,7 @@ class NISTIIF(BaseModel):
         if doPlot:
             fig = go.Figure()
         print(f'Bootstrapping {nsamples} samples...')
-        for _ in range(nsamples):
+        for i in range(nsamples):
             # Add random perturbation irradiance data (more stable results)
             perturbation = rng.normal(0, self.unc_data_abs_k1)
             data_perturbed = self.irr_data + perturbation
@@ -167,7 +167,7 @@ class NISTIIF(BaseModel):
                 if doPlot:
                     fig = fig.add_trace(go.Scatter(
                         x=GBinterpWavelengths, y=GBinterpIrradiances, mode='lines',
-                        name=f'Bootstrap Sample {_+1}', line=dict(color='grey', width=0.5)
+                        name=f'Bootstrap Sample {i+1}', line=dict(color='grey', width=0.5)
                     ) )
             except RuntimeError:
                 continue

@@ -92,7 +92,7 @@ def main():
     # uncEstStr = 'MCPropagation'  # Uncomment to use MCPropagation    
     uncEstStr = 'bootstrap'    # Use bootstrap to estimate uncertainties
     # uncEstStr = 'covariance'    # Use covariance matrix to estimate uncertainties
-    # uncEstStr = 'WhiteSpline'    # Use bootstrap to estimate uncertainties
+    # uncEstStr = 'WhiteSpline'    # Use WhiteSpline to estimate uncertainties (WhiteSpline model only)
     interp_df = theModel.model_unc(w_interp, nsamples=nsamples, method=uncEstStr, doPlot=True)  
     
         # Plot original data and modeled mean spectrum + uncertainties evaluated at interpolated 
