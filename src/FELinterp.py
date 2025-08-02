@@ -71,10 +71,10 @@ def main():
     # dff = pd.read_csv(lampPath, header=None, sep='\\s+', names=['wavelength', 'irradiance'], skiprows = 3)
 
     # Create theModel model and print fitted parameters
-    theModel = SSBUV(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
+    # theModel = SSBUV(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
     # theModel = SSBUVw0(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
     # theModel = NIST(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy(), wl_fit_limits=np.array([350, 800]) )
-    # theModel = NISTIIF(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy(), wl_fit_limits=np.array([350, 1100]) )
+    theModel = NISTIIF(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy(), wl_fit_limits=np.array([350, 1100]) )
     # theModel = WhiteSpline(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
     theModel.print_model()
 

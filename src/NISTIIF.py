@@ -138,7 +138,8 @@ class NISTIIF(BaseModel):
         step = wavelength[1] - wavelength[0]
 
         # Run bootstrap
-        fig = go.Figure()
+        if doPlot:
+            fig = go.Figure()
         print(f'Bootstrapping {nsamples} samples...')
         for _ in range(nsamples):
             # Add random perturbation irradiance data (more stable results)
@@ -163,14 +164,16 @@ class NISTIIF(BaseModel):
                     )
                 data_bootstrap.append(GBinterpIrradiances)
 
-                fig = fig.add_trace(go.Scatter(
-                    x=GBinterpWavelengths, y=GBinterpIrradiances, mode='lines',
-                    name=f'Bootstrap Sample {_+1}', line=dict(color='grey', width=0.5)
-                ) )
+                if doPlot:
+                    fig = fig.add_trace(go.Scatter(
+                        x=GBinterpWavelengths, y=GBinterpIrradiances, mode='lines',
+                        name=f'Bootstrap Sample {_+1}', line=dict(color='grey', width=0.5)
+                    ) )
             except RuntimeError:
                 continue
 
-        fig.show('browser')  # Show the bootstrap samples
+        if doPlot:
+            fig.show('browser')  # Show the bootstrap samples
         irr_samples = np.array(data_bootstrap)  # shape: (n_samples, len(wwavlength))
 
         # Compute statistics
