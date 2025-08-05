@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 from WhiteSpline import WhiteSpline
 from NIST import NIST
 from NISTIIF import NISTIIF
-from SSBUV import SSBUV, SSBUVw0 
+from SSBUV import SSBUV, SSBUVw0, SSBUV2
  
 
 
@@ -62,7 +62,7 @@ def main():
     # lampSN = 'F1738'
     # lampSN = 'F1739'
     # lampSN = 'F1744'
-    nsamples = 50
+    nsamples = 5000
 
     df = readOptronicLampData(lampSN)
 
@@ -73,6 +73,7 @@ def main():
     # Create theModel model and print fitted parameters
     # theModel = SSBUV(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
     # theModel = SSBUVw0(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
+    # theModel = SSBUV2(df.wavelength.values, df.irradiance.values, df.uncertainty_rel.values)
     # theModel = NIST(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy(), wl_fit_limits=np.array([350, 800]) )
     theModel = NISTIIF(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy(), wl_fit_limits=np.array([350, 1100]) )
     # theModel = WhiteSpline(df.wavelength.to_numpy(), df.irradiance.to_numpy(), df.uncertainty_rel.to_numpy())
