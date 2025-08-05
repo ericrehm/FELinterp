@@ -6,7 +6,7 @@ import numdifftools as nd
 import plotly.graph_objects as go
 from BaseModel import BaseModel
 import sys
-sys.path.insert(1, '../IrradInterPy/src')
+sys.path.insert(1, '../../IrradInterPy/src')
 import Functions.IrradianceInterpolationFuncs as IIF
 
 @dataclass
