@@ -543,7 +543,7 @@ def UncertaintyFromCovariance(covariance, k=1):
     """
     return np.sqrt(np.diag(covariance))
 
-def GrayBodyCoefficients(wavelength, irradiance):
+def GrayBodyCoefficientsEx(wavelength, irradiance, uncert_abs_k1):
     """
     Performs curve-fitting on wavelength-irradiance data to generate coefficients and their uncertainties using the gray body model
 
@@ -577,7 +577,7 @@ def GrayBodyCoefficients(wavelength, irradiance):
     a, b = ab[0], ab[1]
     U_ab = UncertaintyFromCovariance(ab_covariance)
 
-    coefficients_GrayBody, coeff_covariance = curve_fit(__GrayBody__(a, b), wavelength, irradiance, p0=[-1e-4,-1e3,10,-0.01,1], sigma=irradiance)
+    coefficients_GrayBody, coeff_covariance = curve_fit(__GrayBody__(a, b), wavelength, irradiance, p0=[1e-4,-1e3,10,-0.01,1], sigma=uncert_abs_k1, absolute_sigma=True)
     U_coeff = UncertaintyFromCovariance(coeff_covariance)
     return coefficients_GrayBody, U_coeff, a, b, U_ab
 
@@ -690,7 +690,7 @@ class SSBUV2(BaseModel):
         # (self.GBcoefficients, self.GBuncertainty, self.GBa, self.GBb, self.abUncertainty ) =  \
         #     IIF.GrayBodyCoefficients(self.wl_data, self.irr_data, self.wl_fit_limits, self.dof)
         (self.GBcoefficients, self.GBuncertainty, self.GBa, self.GBb, self.abUncertainty ) =  \
-            GrayBodyCoefficients(self.wl_data, self.irr_data)
+            GrayBodyCoefficientsEx(self.wl_data, self.irr_data, self.unc_data_abs_k1)
         self.params = np.concatenate([self.GBcoefficients, [self.GBa], [self.GBb]])
         self.pcov = np.array([])
         self.perr = np.array([])
@@ -773,9 +773,10 @@ class SSBUV2(BaseModel):
 
             # Fit the model to the perturbed data
             try:
-                (GBcoefficients, _, GBa, GBb, _ ) = GrayBodyCoefficients(
+                (GBcoefficients, _, GBa, GBb, _ ) = GrayBodyCoefficientsEx(
                     self.wl_data, 
                     data_perturbed, 
+                    self.unc_data_abs_k1
                     )
 
                 GBinterpWavelengths, GBinterpIrradiances = GrayBodyInterpolationArb(

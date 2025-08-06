@@ -6,6 +6,7 @@ import numdifftools as nd
 import plotly.graph_objects as go
 from BaseModel import BaseModel
 import sys
+sys.path.insert(1, '../IrradInterPy/src')
 sys.path.insert(1, '../../IrradInterPy/src')
 import Functions.IrradianceInterpolationFuncs as IIF
 
@@ -24,7 +25,7 @@ class NISTIIF(BaseModel):
     See Yoon, H.W and Gibson, C.E. "Spectral Irradiance Calibrations", NIST Special Publication 250-89,2011
     '''
     # NIST-specific attributes
-    wl_fit_limits : np.ndarray = field(default_factory=lambda: np.array([350, 800])) # NIST model fit limits in nm
+    wl_fit_limits : np.ndarray = field(default_factory=lambda: np.array([350, 1100])) # NIST model fit limits in nm
 
     # Interface to NIST IIF Functions.GrayBodyCoefficients() output
     dof : int = 5
@@ -61,8 +62,10 @@ class NISTIIF(BaseModel):
         self.unc_data_rel_k2 = self.unc_data_rel_k2[i_lowerBound:i_upperBound]
 
         # Fit using NIST IIF
+        # (self.GBcoefficients, self.GBuncertainty, self.GBa, self.GBb, self.abUncertainty ) =  \
+        #     IIF.GrayBodyCoefficients(self.wl_data, self.irr_data, self.wl_fit_limits, self.dof)
         (self.GBcoefficients, self.GBuncertainty, self.GBa, self.GBb, self.abUncertainty ) =  \
-            IIF.GrayBodyCoefficients(self.wl_data, self.irr_data, self.wl_fit_limits, self.dof)
+            IIF.GrayBodyCoefficientsEx(self.wl_data, self.irr_data, self.unc_data_abs_k1, self.wl_fit_limits, self.dof)
         self.params = np.concatenate([self.GBcoefficients, [self.GBa], [self.GBb]])
         self.pcov = np.array([])
         self.perr = np.array([])
@@ -134,8 +137,8 @@ class NISTIIF(BaseModel):
         rng = np.random.default_rng(42)
         data_bootstrap = []
 
-        limits = [wavelength[0], wavelength[-1]]
-        step = wavelength[1] - wavelength[0]
+        # limits = [wavelength[0], wavelength[-1]]
+        # step = wavelength[1] - wavelength[0]
 
         # Run bootstrap
         if doPlot:
@@ -148,19 +151,27 @@ class NISTIIF(BaseModel):
 
             # Fit the model to the perturbed data
             try:
-                (GBcoefficients, _, GBa, GBb, _ ) = IIF.GrayBodyCoefficients(
+                # (GBcoefficients, _, GBa, GBb, _ ) = IIF.GrayBodyCoefficients(
+                (GBcoefficients, _, GBa, GBb, _ ) = IIF.GrayBodyCoefficientsEx(
                     self.wl_data, 
                     data_perturbed, 
+                    self.unc_data_abs_k1,
                     self.wl_fit_limits, 
                     self.dof
                     )
 
-                GBinterpWavelengths, GBinterpIrradiances = IIF.GrayBodyInterpolation(
-                    limits,
+                # GBinterpWavelengths, GBinterpIrradiances = IIF.GrayBodyInterpolation(
+                #     limits,
+                #     GBcoefficients,
+                #     GBa,
+                #     GBb,
+                #     step,
+                #     )
+                GBinterpWavelengths, GBinterpIrradiances = IIF.GrayBodyInterpolationArb(
+                    wavelength,
                     GBcoefficients,
                     GBa,
                     GBb,
-                    step,
                     )
                 data_bootstrap.append(GBinterpIrradiances)
 
@@ -204,12 +215,19 @@ class NISTIIF(BaseModel):
             print(f'Computed wavelength array in {self.__class__.__name__} does not match input wavelength array')
         
         # Evaluate NIST model at wavelengths =  = np.arange(limits[0], limits[1]+step, step)
-        _, GBinterpIrradiances = IIF.GrayBodyInterpolation(
-            limits,  
+        # _, GBinterpIrradiances = IIF.GrayBodyInterpolation(
+        #     limits,  
+        #     self.GBcoefficients,
+        #     self.GBa,
+        #     self.GBb,
+        #     step,
+        # )
+        _, GBinterpIrradiances = IIF.GrayBodyInterpolationArb(
+            wavelength,  
             self.GBcoefficients,
             self.GBa,
             self.GBb,
-            step,
+            # step,
         )
 
         # Use limited wavelengths to compute GBBB temperature
